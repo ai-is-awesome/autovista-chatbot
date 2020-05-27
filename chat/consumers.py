@@ -30,7 +30,7 @@ class ChatConsumer(WebsocketConsumer):
         
         if message in commands:
             if message == 'name':
-                response_message = 'Hi, %s. Nice to meet you. ' %(message)
+                response_message = 'Please enter your name'
 
             if message == 'help':
                 response_message = 'How can I help you?'
