@@ -1,57 +1,59 @@
 import json
+from asgiref.sync import async_to_sync
 from channels.generic.websocket import WebsocketConsumer
-
-
-commands = {
-    'name' : 'Hi, Please enter your name. ',
-    'help' : 'How can I help you?', 
-    'contact' : 'Please enter your contact information'
-
-}
-
-
-
-
 
 
 
 class ChatConsumer(WebsocketConsumer):
     def connect(self):
-        self.accept()
+        self.room_name = self.scope['url_route']['kwargs']['room_name']
+        self.room_group_name = 'chat_%s' % self.room_name
+
+        # Join room group
+        async_to_sync(self.channel_layer.group_add)(
+            self.room_group_name,
+            self.channel_name
+        )
+        user = self.scope['user']
+        print('user is', user)
+        if user.is_authenticated and user.is_superuser:
+            print('User is admin')
+            self.accept()
+        else:
+            print('User isnt admin')
 
     def disconnect(self, close_code):
-        pass
+        # Leave room group
+        async_to_sync(self.channel_layer.group_discard)(
+            self.room_group_name,
+            self.channel_name
+        )
 
-
-
+    # Receive message from WebSocket
     def receive(self, text_data):
         text_data_json = json.loads(text_data)
         message = text_data_json['message']
-        
-        if message in commands:
-            if message == 'name':
-                response_message = 'Please enter your name'
 
-            if message == 'help':
-                response_message = 'How can I help you?'
+        # Send message to room group
+        async_to_sync(self.channel_layer.group_send)(
+            self.room_group_name,
+            {
+                'type': 'chat_message',
+                'message': message
+            }
+        )
 
-            if message == 'contact':
-                response_message = 'Please enter your contact information. '
+    # Receive message from room group
+    def chat_message(self, event):
+        print('event', event)
+        message = event['message']
 
-
-
-        else:
-            response_message = 'Invalid response, please choose from either name, help or contact'
-
-        message_parts = message.split()
-
-
-        
-
+        # Send message to WebSocket
         self.send(text_data=json.dumps({
-            'message': response_message,
-            'type': 'chat_message'
+            'message': message
         }))
+
+
 
 
 
